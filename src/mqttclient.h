@@ -32,6 +32,7 @@ public:
     void operate();
     void publish(std::string subtopic, std::string payload);
     void sendRssi();
+    void sendIp();
     bool isOk() { return wifiOk;}
 };
 

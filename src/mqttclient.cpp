@@ -154,3 +154,7 @@ void MqttClient::sendRssi(){
   std::sprintf(buf, "%d", WiFi.RSSI()); 
   client.publish(std::string(prefix + "RSSI").c_str(), buf);
 }
+
+void MqttClient::sendIp(){
+  client.publish(std::string(prefix + "IP").c_str(), WiFi.localIP().toString().c_str());
+}

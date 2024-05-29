@@ -26,13 +26,14 @@ void setup()
   digitalWrite(LED_PIN, HIGH); // turn off led
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
 
-  Serial.println("SHT31 test");
   sht31_in.begin(0x44);
   sht31_out.begin(0x45);
 }
 
 void loop()
 {
+  static uint32_t cnt = 100;
+
   if (mqttClient->isOk())
   {
     mqttClient->operate();
@@ -89,6 +90,14 @@ void loop()
     else
     {
       // Serial.println("Failed to read out humidity");
+    }
+
+    mqttClient->sendRssi();
+
+    if (cnt++ >= 100)
+    {
+      mqttClient->sendIp();
+      cnt = 0;
     }
 
     digitalWrite(LED_PIN, HIGH); // turn off led
