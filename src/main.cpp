@@ -1,64 +1,115 @@
 #include <Arduino.h>
 #include "mqttclient.h"
+#include <Wire.h>
+#include "Adafruit_SHT31.h"
 
-#define SENSORNO "9"
-#define DNSNAME "EspSolarMoisture2"
-#define TOPIC "iot/garten/EspSolarMoisture/"
+#define DNSNAME "EspHumidity1"
+#define TOPIC "iot/keller/EspHumiditySensor/"
 
-#define LED_PIN 2      // ESP-01 -> Pin 1 / ESP-01S -> Pin 2 //esp32 dollatec -> 16 (nicht benutzen wenn deep sleep verwendet wird)
-#define SENSOR_POWER 3 // pin 3 (RX), set to high to power the sensor
-// wakeup each 5min = 300s
-// #define SLEEPTIME_US (1000000 * 300)
+// pin description: https://wolles-elektronikkiste.de/wemos-d1-mini-boards
+#define LED_PIN 2 // D4
+// D1 SCL
+// D2 SDA
+
 #define SLEEPTIME_US (1000000 * 10) // deep sleep needs wire between RST and XPD_DCDC on ESP-01
 MqttClient *mqttClient = nullptr;
-const float SCALE = 1;
-const float OFFSET = 0;
 
-int clip(int value, int min = 0, int max = 100)
-{
-  if (value < min)
-  {
-    return min;
-  }
-  if (value > max)
-  {
-    return max;
-  }
-  return value;
-}
+Adafruit_SHT31 sht31_in = Adafruit_SHT31();
+Adafruit_SHT31 sht31_out = Adafruit_SHT31();
 
 void setup()
 {
+  Serial.begin(9600);
+  Serial.println("init");
+
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH); // turn off led
-  // power sensor and wait for it to settle
-  pinMode(SENSOR_POWER, OUTPUT);
-  digitalWrite(SENSOR_POWER, HIGH);
-  delay(1000);
-
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
-  if (mqttClient->isOk())
-  {
-    mqttClient->operate();
 
-    auto value = 0;
-    for (int i = 0; i < 10; i++)
-    {
-      value += analogRead(A0);
-      delay(100);
-    }
-    value /= 10;
-    digitalWrite(SENSOR_POWER, LOW);
-
-    digitalWrite(LED_PIN, LOW); // turn on led
-    //mqttClient->publish(SENSORNO, std::to_string(100 - clip(value * SCALE + OFFSET)).c_str());
-    mqttClient->publish(SENSORNO, std::to_string(value).c_str());
-    digitalWrite(LED_PIN, HIGH); // turn off led
+  Serial.println("SHT31 test");
+  if (!sht31_in.begin(0x44))
+  { // Set to 0x45 for alternate i2c addr
+    Serial.println("Couldn't find SHT31_in");
+    while (1)
+      delay(1);
   }
-  delete mqttClient;
-  ESP.deepSleep(SLEEPTIME_US);
+  else
+  {
+    Serial.println("SHT31_in OK");
+  }
+  if (!sht31_out.begin(0x45))
+  {
+    Serial.println("Couldn't find SHT31_outn");
+    while (1)
+      delay(1);
+  }
+  else
+  {
+    Serial.println("SHT31_out OK");
+  }
 }
 
 void loop()
 {
+  if (mqttClient->isOk())
+  {
+    mqttClient->operate();
+
+    digitalWrite(LED_PIN, LOW); // turn on led
+
+    float t = sht31_in.readTemperature();
+    float h = sht31_in.readHumidity();
+
+    if (!isnan(t))
+    { // check if 'is not a number'
+      Serial.print("In Temp *C = ");
+      Serial.print(t);
+      Serial.print("\t\t");
+      mqttClient->publish("in/temp", String(t).c_str());
+    }
+    else
+    {
+      Serial.println("Failed to read in temperature");
+    }
+
+    if (!isnan(h))
+    { // check if 'is not a number'
+      Serial.print("in Hum. % = ");
+      Serial.println(h);
+      mqttClient->publish("in/hum", String(h).c_str());
+    }
+    else
+    {
+      Serial.println("Failed to read in humidity");
+    }
+
+    t = sht31_out.readTemperature();
+    h = sht31_out.readHumidity();
+
+    if (!isnan(t))
+    { // check if 'is not a number'
+      Serial.print("out Temp *C = ");
+      Serial.print(t);
+      Serial.print("\t\t");
+      mqttClient->publish("out/temp", String(t).c_str());
+    }
+    else
+    {
+      Serial.println("Failed to read out temperature");
+    }
+
+    if (!isnan(h))
+    { // check if 'is not a number'
+      Serial.print("out Hum. % = ");
+      Serial.println(h);
+      mqttClient->publish("out/hum", String(h).c_str());
+    }
+    else
+    {
+      Serial.println("Failed to read out humidity");
+    }
+
+    digitalWrite(LED_PIN, HIGH); // turn off led
+    delay(1000);
+  }
 }

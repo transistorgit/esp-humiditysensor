@@ -59,9 +59,9 @@ MqttClient::~MqttClient()
 bool MqttClient::setupWifi()
 {
   delay(100);
-  //Serial.println();
-  //Serial.print("Connecting to ");
-  //Serial.println(ssid);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(SSID);
 
   WiFi.mode(WIFI_OFF);
   WiFi.mode(WIFI_STA);
@@ -78,10 +78,10 @@ bool MqttClient::setupWifi()
         // Serial.print("+");
   }
 
-  //Serial.println("");
-  //Serial.println("WiFi connected");
-  //Serial.println("IP address: ");
-  //Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
 
   initOta();
   return true;
