@@ -19,34 +19,16 @@ Adafruit_SHT31 sht31_out = Adafruit_SHT31();
 
 void setup()
 {
-  Serial.begin(9600);
-  Serial.println("init");
+  // Serial.begin(9600);
+  // Serial.println("init");
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH); // turn off led
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
 
   Serial.println("SHT31 test");
-  if (!sht31_in.begin(0x44))
-  { // Set to 0x45 for alternate i2c addr
-    Serial.println("Couldn't find SHT31_in");
-    while (1)
-      delay(1);
-  }
-  else
-  {
-    Serial.println("SHT31_in OK");
-  }
-  if (!sht31_out.begin(0x45))
-  {
-    Serial.println("Couldn't find SHT31_outn");
-    while (1)
-      delay(1);
-  }
-  else
-  {
-    Serial.println("SHT31_out OK");
-  }
+  sht31_in.begin(0x44);
+  sht31_out.begin(0x45);
 }
 
 void loop()
@@ -62,25 +44,25 @@ void loop()
 
     if (!isnan(t))
     { // check if 'is not a number'
-      Serial.print("In Temp *C = ");
-      Serial.print(t);
-      Serial.print("\t\t");
+      // Serial.print("In Temp *C = ");
+      // Serial.print(t);
+      // Serial.print("\t\t");
       mqttClient->publish("in/temp", String(t).c_str());
     }
     else
     {
-      Serial.println("Failed to read in temperature");
+      // Serial.println("Failed to read in temperature");
     }
 
     if (!isnan(h))
     { // check if 'is not a number'
-      Serial.print("in Hum. % = ");
-      Serial.println(h);
+      // Serial.print("in Hum. % = ");
+      // Serial.println(h);
       mqttClient->publish("in/hum", String(h).c_str());
     }
     else
     {
-      Serial.println("Failed to read in humidity");
+      // Serial.println("Failed to read in humidity");
     }
 
     t = sht31_out.readTemperature();
@@ -88,28 +70,28 @@ void loop()
 
     if (!isnan(t))
     { // check if 'is not a number'
-      Serial.print("out Temp *C = ");
-      Serial.print(t);
-      Serial.print("\t\t");
+      // Serial.print("out Temp *C = ");
+      // Serial.print(t);
+      // Serial.print("\t\t");
       mqttClient->publish("out/temp", String(t).c_str());
     }
     else
     {
-      Serial.println("Failed to read out temperature");
+      // Serial.println("Failed to read out temperature");
     }
 
     if (!isnan(h))
-    { // check if 'is not a number'
-      Serial.print("out Hum. % = ");
-      Serial.println(h);
+    {
+      // Serial.print("out Hum. % = ");
+      // Serial.println(h);
       mqttClient->publish("out/hum", String(h).c_str());
     }
     else
     {
-      Serial.println("Failed to read out humidity");
+      // Serial.println("Failed to read out humidity");
     }
 
     digitalWrite(LED_PIN, HIGH); // turn off led
-    delay(1000);
+    delay(10000);
   }
 }
