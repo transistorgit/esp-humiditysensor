@@ -10,6 +10,7 @@
 #define LED_PIN 2 // D4
 // D1 SCL
 // D2 SDA
+#define LEVEL_PIN D7
 
 #define SLEEPTIME_US (1000000 * 10) // deep sleep needs wire between RST and XPD_DCDC on ESP-01
 MqttClient *mqttClient = nullptr;
@@ -98,6 +99,15 @@ void loop()
     {
       mqttClient->sendIp();
       cnt = 0;
+
+      if (digitalRead(LEVEL_PIN))
+      {
+        mqttClient->publish("bucketfull", "0");
+      }
+      else
+      {
+        mqttClient->publish("bucketfull", "1");
+      }
     }
 
     digitalWrite(LED_PIN, HIGH); // turn off led
