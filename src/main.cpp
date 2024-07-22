@@ -11,12 +11,26 @@
 // D1 SCL
 // D2 SDA
 #define LEVEL_PIN D7
+#define RELAIS_PIN D6
 
 #define SLEEPTIME_US (1000000 * 10) // deep sleep needs wire between RST and XPD_DCDC on ESP-01
 MqttClient *mqttClient = nullptr;
 
 Adafruit_SHT31 sht31_in = Adafruit_SHT31();
 Adafruit_SHT31 sht31_out = Adafruit_SHT31();
+
+void drain()
+{
+  mqttClient->publish("pumping", "1");
+  digitalWrite(RELAIS_PIN, HIGH);
+  for (int i = 0; i < 3; i++)
+  {
+    mqttClient->operate();
+    delay(10000);
+  }
+  digitalWrite(RELAIS_PIN, LOW);
+  mqttClient->publish("pumping", "0");
+}
 
 void setup()
 {
@@ -25,7 +39,13 @@ void setup()
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH); // turn off led
+
+  pinMode(RELAIS_PIN, OUTPUT);
+  digitalWrite(RELAIS_PIN, LOW); // turn relais off
+
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
+  mqttClient->publish("bucketfull", "0");
+  mqttClient->publish("pumping", "0");
 
   sht31_in.begin(0x44);
   sht31_out.begin(0x45);
@@ -106,7 +126,11 @@ void loop()
       }
       else
       {
-        mqttClient->publish("bucketfull", "1");
+        drain();
+        if (!digitalRead(LEVEL_PIN))
+        {
+          mqttClient->publish("bucketfull", "1");
+        }
       }
     }
 
