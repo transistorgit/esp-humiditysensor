@@ -19,17 +19,20 @@ MqttClient *mqttClient = nullptr;
 Adafruit_SHT31 sht31_in = Adafruit_SHT31();
 Adafruit_SHT31 sht31_out = Adafruit_SHT31();
 
-void drain()
+// Funktion zur Berechnung des Sättigungsdampfdrucks (in Pa) (by MS Copilot)
+double saettigungsdampfdruck(double temperatur)
 {
-  mqttClient->publish("pumping", "1");
-  digitalWrite(RELAIS_PIN, HIGH);
-  for (int i = 0; i < 3; i++)
-  {
-    mqttClient->operate();
-    delay(10000);
-  }
-  digitalWrite(RELAIS_PIN, LOW);
-  mqttClient->publish("pumping", "0");
+  return 6.1078 * pow(10, (7.5 * temperatur) / (237.3 + temperatur));
+}
+
+// Funktion zur Berechnung der absoluten Luftfeuchtigkeit (in g/m³)
+double absoluteLuftfeuchtigkeit(double relativeFeuchte, double temperatur)
+{
+  double e_s = saettigungsdampfdruck(temperatur); // Sättigungsdampfdruck
+  double e = (relativeFeuchte)*e_s;               // Wasserdampfdruck
+  double R_d = 461.51;                            // Gaskonstante für Wasserdampf in J/(kg*K)
+  double T = temperatur + 273.15;                 // Temperatur in Kelvin
+  return (e * 1000) / (R_d * T);                  // Absolute Luftfeuchtigkeit in g/m³
 }
 
 void setup()
@@ -41,11 +44,14 @@ void setup()
   digitalWrite(LED_PIN, HIGH); // turn off led
 
   pinMode(RELAIS_PIN, OUTPUT);
+  digitalWrite(RELAIS_PIN, HIGH); // turn relais on for test
+  delay(2000);
   digitalWrite(RELAIS_PIN, LOW); // turn relais off
 
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
-  mqttClient->publish("bucketfull", "0");
-  mqttClient->publish("pumping", "0");
+  mqttClient->publish("fanState", "0");
+
+  // TODO: implement fan remote control "fanCmd"
 
   sht31_in.begin(0x44);
   sht31_out.begin(0x45);
@@ -53,84 +59,90 @@ void setup()
 
 void loop()
 {
-  static uint32_t cnt = 100;
-
+  static uint32_t cnt = 10;
+  static bool fanState = false;
   if (mqttClient->isOk())
   {
     mqttClient->operate();
 
     digitalWrite(LED_PIN, LOW); // turn on led
 
-    float t = sht31_in.readTemperature();
-    float h = sht31_in.readHumidity();
+    float tin = sht31_in.readTemperature();
+    float hin = sht31_in.readHumidity();
 
-    if (!isnan(t))
+    if (!isnan(tin))
     { // check if 'is not a number'
       // Serial.print("In Temp *C = ");
       // Serial.print(t);
       // Serial.print("\t\t");
-      mqttClient->publish("in/temp", String(t).c_str());
+      mqttClient->publish("in/temp", String(tin).c_str());
     }
     else
     {
       // Serial.println("Failed to read in temperature");
     }
 
-    if (!isnan(h))
+    if (!isnan(hin))
     { // check if 'is not a number'
       // Serial.print("in Hum. % = ");
       // Serial.println(h);
-      mqttClient->publish("in/hum", String(h).c_str());
+      mqttClient->publish("in/hum", String(hin).c_str());
     }
     else
     {
       // Serial.println("Failed to read in humidity");
     }
 
-    t = sht31_out.readTemperature();
-    h = sht31_out.readHumidity();
+    float tout = sht31_out.readTemperature();
+    float hout = sht31_out.readHumidity();
 
-    if (!isnan(t))
+    if (!isnan(tout))
     { // check if 'is not a number'
       // Serial.print("out Temp *C = ");
       // Serial.print(t);
       // Serial.print("\t\t");
-      mqttClient->publish("out/temp", String(t).c_str());
+      mqttClient->publish("out/temp", String(tout).c_str());
     }
     else
     {
       // Serial.println("Failed to read out temperature");
     }
 
-    if (!isnan(h))
+    if (!isnan(hout))
     {
       // Serial.print("out Hum. % = ");
       // Serial.println(h);
-      mqttClient->publish("out/hum", String(h).c_str());
+      mqttClient->publish("out/hum", String(hout).c_str());
     }
     else
     {
       // Serial.println("Failed to read out humidity");
     }
 
+    float absIn = absoluteLuftfeuchtigkeit(hin, tin);
+    float absOut = absoluteLuftfeuchtigkeit(hout, tout);
+
+    mqttClient->publish("in/absHum", String(absIn).c_str());
+    mqttClient->publish("out/absHum", String(absOut).c_str());
+    mqttClient->publish("fanState", String(fanState ? "1" : "0").c_str());
+
     mqttClient->sendRssi();
 
-    if (cnt++ >= 100)
+    if (cnt++ >= 10)
     {
       mqttClient->sendIp();
       cnt = 0;
 
-      if (digitalRead(LEVEL_PIN))
+      // turn fan on if inside air is significantly more humid than outside air
+      if (absIn > absOut + 0.5)
       {
-        mqttClient->publish("bucketfull", "0");
+        digitalWrite(RELAIS_PIN, HIGH); // turn relais on
+        fanState = true;
       }
       else
       {
-        drain();
-        if (!digitalRead(LEVEL_PIN))
-        {
-          mqttClient->publish("bucketfull", "1");
-        }
+        digitalWrite(RELAIS_PIN, LOW); // turn relais off
+        fanState = false;
       }
     }
 
