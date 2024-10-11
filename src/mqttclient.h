@@ -34,5 +34,6 @@ public:
     void sendRssi();
     void sendIp();
     bool isOk() { return wifiOk;}
+    bool subscribe(std::string subtopic);
 };
 

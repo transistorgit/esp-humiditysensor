@@ -59,9 +59,9 @@ MqttClient::~MqttClient()
 bool MqttClient::setupWifi()
 {
   delay(100);
-  // Serial.println();
-  // Serial.print("Connecting to ");
-  // Serial.println(SSID);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(SSID);
 
   WiFi.mode(WIFI_OFF);
   WiFi.mode(WIFI_STA);
@@ -75,13 +75,13 @@ bool MqttClient::setupWifi()
             return false;
         }
         delay(2000);
-        // Serial.print("+");
+        Serial.print("+");
   }
 
-  // Serial.println("");
-  // Serial.println("WiFi connected");
-  // Serial.println("IP address: ");
-  // Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
 
   initOta();
   return true;
@@ -91,31 +91,31 @@ void MqttClient::initOta(){
   ArduinoOTA.setHostname(name.c_str());
   ArduinoOTA.setPassword(OTAPASSWORD);
   ArduinoOTA.onStart([]() {
-    Serial.println("Start");
+    //Serial.println("Start");
     });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
+    //Serial.println("\nEnd");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    //Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
+    /*Serial.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
     else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
     else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
     else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");*/
   });
   ArduinoOTA.begin();
 }
 
 void MqttClient::reconnect() {
   // Loop until we're reconnected
-  // Serial.print("Attempting MQTT connection...");
+  Serial.print("Attempting MQTT reconnection...");
   if (client.connect(name.c_str()))
   {
-    // Serial.println("connected");
+    Serial.println("connected");
     return;
   }
 
@@ -157,4 +157,13 @@ void MqttClient::sendRssi(){
 
 void MqttClient::sendIp(){
   client.publish(std::string(prefix + "IP").c_str(), WiFi.localIP().toString().c_str());
+}
+
+bool MqttClient::subscribe(std::string subtopic){
+  if (!client.connected())
+  {
+    return false;
+  }
+  Serial.println(std::string(prefix + subtopic).c_str());
+  return client.subscribe(std::string(prefix + subtopic).c_str());
 }
