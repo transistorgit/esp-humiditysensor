@@ -11,7 +11,7 @@
 // D1 SCL
 // D2 SDA
 #define LEVEL_PIN D7
-#define RELAIS_PIN D6
+#define RELAY_PIN D6
 
 #define SLEEPTIME_US (1000000 * 10) // deep sleep needs wire between RST and XPD_DCDC on ESP-01
 MqttClient *mqttClient = nullptr;
@@ -43,10 +43,10 @@ void setup()
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH); // turn off led
 
-  pinMode(RELAIS_PIN, OUTPUT);
-  digitalWrite(RELAIS_PIN, HIGH); // turn relais on for test
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH); // turn relay on for test
   delay(2000);
-  digitalWrite(RELAIS_PIN, LOW); // turn relais off
+  digitalWrite(RELAY_PIN, LOW); // turn relay off
 
   mqttClient = new MqttClient(DNSNAME, TOPIC, nullptr);
   mqttClient->publish("fanState", "0");
@@ -71,52 +71,26 @@ void loop()
     float hin = sht31_in.readHumidity();
 
     if (!isnan(tin))
-    { // check if 'is not a number'
-      // Serial.print("In Temp *C = ");
-      // Serial.print(t);
-      // Serial.print("\t\t");
-      mqttClient->publish("in/temp", String(tin).c_str());
-    }
-    else
     {
-      // Serial.println("Failed to read in temperature");
+      mqttClient->publish("in/temp", String(tin).c_str());
     }
 
     if (!isnan(hin))
-    { // check if 'is not a number'
-      // Serial.print("in Hum. % = ");
-      // Serial.println(h);
-      mqttClient->publish("in/hum", String(hin).c_str());
-    }
-    else
     {
-      // Serial.println("Failed to read in humidity");
+      mqttClient->publish("in/hum", String(hin).c_str());
     }
 
     float tout = sht31_out.readTemperature();
     float hout = sht31_out.readHumidity();
 
     if (!isnan(tout))
-    { // check if 'is not a number'
-      // Serial.print("out Temp *C = ");
-      // Serial.print(t);
-      // Serial.print("\t\t");
-      mqttClient->publish("out/temp", String(tout).c_str());
-    }
-    else
     {
-      // Serial.println("Failed to read out temperature");
+      mqttClient->publish("out/temp", String(tout).c_str());
     }
 
     if (!isnan(hout))
     {
-      // Serial.print("out Hum. % = ");
-      // Serial.println(h);
       mqttClient->publish("out/hum", String(hout).c_str());
-    }
-    else
-    {
-      // Serial.println("Failed to read out humidity");
     }
 
     float absIn = absoluteLuftfeuchtigkeit(hin, tin);
@@ -133,15 +107,16 @@ void loop()
       mqttClient->sendIp();
       cnt = 0;
 
-      // turn fan on if inside air is significantly more humid than outside air
-      if (absIn > absOut + 0.5)
+      // Turn fan on if the inside absolute humidity is at least 2.0 g/m³ higher than outside
+      if (absIn > absOut + 3.0)
       {
-        digitalWrite(RELAIS_PIN, HIGH); // turn relais on
+        digitalWrite(RELAY_PIN, HIGH); // turn relay on
         fanState = true;
       }
-      else
+      // Turn fan off if the inside absolute humidity is 1.0 g/m³ higher than outside
+      else if (absIn <= absOut + 2.0)
       {
-        digitalWrite(RELAIS_PIN, LOW); // turn relais off
+        digitalWrite(RELAY_PIN, LOW); // turn relay off
         fanState = false;
       }
     }
