@@ -14,17 +14,20 @@
 #define RELAY_PIN D6
 
 #define SLEEPTIME_US (1000000 * 10) // deep sleep needs wire between RST and XPD_DCDC on ESP-01
+#define LOOP_RESET_VALUE 100
+
 MqttClient *mqttClient = nullptr;
 
 Adafruit_SHT31 sht31_in = Adafruit_SHT31();
 Adafruit_SHT31 sht31_out = Adafruit_SHT31();
 
 // Standard trigger values
-float fanOnLevel = 3.0;
-float fanOffLevel = 2.0;
+float fanOnLevel = 3.0f;
+float fanOffLevel = 2.0f;
+float outsideTempThreshold = 5.0f;
 
 // loop counter
-uint32_t cnt = 100;
+uint32_t cnt = LOOP_RESET_VALUE;
 
 // Funktion zur Berechnung des Sättigungsdampfdrucks (in Pa) (by MS Copilot)
 double saettigungsdampfdruck(double temperatur)
@@ -58,7 +61,7 @@ void handleMqttMessage(char *topic, byte *payload, unsigned int length)
     snprintf(data, min((int)length, 10), "%s", payload);
     fanOnLevel = atof(data);
     mqttClient->publish("fanOnLevelReturn", String(fanOnLevel).c_str());
-    cnt = 100; // make changes effective immediately
+    cnt = LOOP_RESET_VALUE; // make changes effective immediately
   }
   else if (strcmp(topic, "iot/keller/EspHumiditySensor/fanOffLevel") == 0)
   {
@@ -67,12 +70,21 @@ void handleMqttMessage(char *topic, byte *payload, unsigned int length)
     snprintf(data, min((int)length, 10), "%s", payload);
     fanOffLevel = atof(data);
     mqttClient->publish("fanOffLevelReturn", String(fanOffLevel).c_str());
-    cnt = 100; // make changes effective immediately
+    cnt = LOOP_RESET_VALUE; // make changes effective immediately
   }
   else if (strcmp(topic, "iot/keller/EspHumiditySensor/fanCmd") == 0)
   {
     Serial.println("fanCmd");
-    digitalWrite(RELAY_PIN, (*payload) & 0xff != 0);
+    digitalWrite(RELAY_PIN, (*payload & 0xff) != 0);
+  }
+  else if (strcmp(topic, "iot/keller/EspHumiditySensor/outsideTempThreshold") == 0)
+  {
+    Serial.println("outsideTempThreshold");
+    char data[10];
+    snprintf(data, min((int)length, 10), "%s", payload);
+    outsideTempThreshold = atof(data);
+    mqttClient->publish("outsideTempThresholdReturn", String(outsideTempThreshold).c_str());
+    cnt = LOOP_RESET_VALUE; // make changes effective immediately
   }
 }
 
@@ -108,6 +120,7 @@ void loop()
   static bool fanState = false;
   float absIn = 0.0f;
   float absOut = 0.0f;
+  float tout = 0.0f;
   if (mqttClient->isOk())
   {
     Serial.println("Loop");
@@ -130,7 +143,7 @@ void loop()
         mqttClient->publish("in/hum", String(hin).c_str());
       }
 
-      float tout = sht31_out.readTemperature();
+      tout = sht31_out.readTemperature();
       float hout = sht31_out.readHumidity();
 
       if (!isnan(tout))
@@ -152,14 +165,15 @@ void loop()
 
       mqttClient->sendRssi();
     }
-    if (cnt++ >= 100)
+    if (cnt++ >= LOOP_RESET_VALUE)
     {
       Serial.println("Loop/100");
       mqttClient->sendIp();
       cnt = 0;
 
       // Turn fan on if the inside absolute humidity is at least 2.0 g/m³ higher than outside
-      if (absIn > absOut + fanOnLevel)
+      // and the outside temperature is above the threshold
+      if (absIn > absOut + fanOnLevel && tout > outsideTempThreshold)
       {
         digitalWrite(RELAY_PIN, HIGH); // turn relay on
         fanState = true;
