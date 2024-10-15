@@ -179,7 +179,7 @@ void loop()
         fanState = true;
       }
       // Turn fan off if the inside absolute humidity is 1.0 g/m³ higher than outside
-      else if (absIn <= absOut + fanOffLevel)
+      else if (absIn <= absOut + fanOffLevel || tout < outsideTempThreshold + 1)
       {
         digitalWrite(RELAY_PIN, LOW); // turn relay off
         fanState = false;
