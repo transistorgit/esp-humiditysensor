@@ -121,13 +121,14 @@ void loop()
   float absIn = 0.0f;
   float absOut = 0.0f;
   float tout = 0.0f;
+  mqttClient->operate();
+
   if (mqttClient->isOk())
   {
-    Serial.println("Loop");
-    mqttClient->operate();
+    //Serial.println("Loop");
 
     if(cnt % 10 == 0){
-      Serial.println("Loop/10");
+      //Serial.println("Loop/10");
       digitalWrite(LED_PIN, LOW); // turn on led
 
       float tin = sht31_in.readTemperature();

@@ -10,10 +10,8 @@ class MqttClient{
     std::string name;
     std::string prefix;
     bool wifiOk = false;
-    int mqttRetries = 0;
     int wifiRetries = 0;
     const int Max_Wifi_Retries = 30;
-    const int Max_Mqtt_Retries = 20;
 
 
     WiFiClient espClient;

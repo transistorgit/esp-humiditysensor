@@ -27,7 +27,6 @@ MqttClient::MqttClient(std::string name, std::string prefix, std::function<void(
 MqttClient::~MqttClient()
 {
   publish("WifiRetries", String(wifiRetries).c_str());
-  publish("MqttRetries", String(mqttRetries).c_str());
   sendRssi();
 
   if (client.connected())
@@ -119,14 +118,9 @@ void MqttClient::reconnect() {
   // Serial.print("failed, rc=");
   // Serial.print(client.state());
   // Serial.println(" try again in 1 second");
-  if (mqttRetries++ > Max_Mqtt_Retries)
-  {
-    wifiOk = false;
-    return;
-  }
 
-    // Wait 1 seconds before retrying
-    delay(1000);
+  // Wait 1 seconds before retrying
+  delay(1000);
 }
 
 void MqttClient::operate(){
